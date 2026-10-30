@@ -1,0 +1,12 @@
+{% extends "base.html" %} {% block content %}
+<h1>{{ project.title }}</h1>
+<p>{{ project.description }}</p>
+<p>Manager: {{ project.manager }}</p>
+<p>Client: {{ project.client }}</p>
+<p>Status: {{ project.get_status_display }}</p>
+<p>{{ project.start_date }} → {{ project.due_date }}</p>
+
+{% if request.user.is_superuser or request.user.role == "ADMIN" or request.user.role == "MANAGER" %}
+<a href="{% url 'projects:project_update' project.pk %}">Edit</a>
+<a href="{% url 'projects:project_delete' project.pk %}">Delete</a>
+{% endif %} {% endblock %} 

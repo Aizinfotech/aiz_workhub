@@ -1,0 +1,18 @@
+{% extends "base.html" %} {% block content %}
+<h1>Projects</h1>
+
+{% if request.user.is_superuser or request.user.role == "ADMIN" or request.user.role == "MANAGER" %}
+<a href="{% url 'projects:project_create' %}">Add Project</a>
+
+{% endif %} 
+
+{% for project in projects %}
+<p>
+  <a href="{% url 'projects:project_detail' project.pk %}">
+    {{ project.title }}
+  </a>
+  - {{ project.get_status_display }}
+</p>
+{% empty %}
+<p>No projects available.</p>
+{% endfor %} {% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<p>Welcome {{ request.user.username }}</p>
+<a href="{% url 'accounts:logout' %}">Logout</a>
+
+
+<h1>Employee Dashboard</h1>
+
+{% endblock %}
