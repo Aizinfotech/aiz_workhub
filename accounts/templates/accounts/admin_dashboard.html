@@ -9,4 +9,16 @@
 <a href="{% url 'projects:project_list' %}">Projects</a>
 <a href="{% url 'projects:project_create' %}">Create Project</a>
 
+
+
+<a href="{% url 'tasks:list' %}">
+    Tasks
+</a>
+
+{% if request.user.role == "ADMIN" or request.user.role == "MANAGER" %}
+    <a href="{% url 'tasks:create' %}">
+        Create Task
+    </a>
+{% endif %}
+
 {% endblock %}

@@ -7,7 +7,15 @@
 <a href="{% url 'projects:project_list' %}">My Projects</a> </br> </br>
 <a href="{% url 'projects:project_create' %}">Create Project</a> </br> </br>
 
+<a href="{% url 'tasks:list' %}">
+    Tasks
+</a>
 
+{% if request.user.role == "ADMIN" or request.user.role == "MANAGER" %}
+    <a href="{% url 'tasks:create' %}">
+        Create Task
+    </a>
+{% endif %}
 
 <h1>Manager Dashboard</h1>
 

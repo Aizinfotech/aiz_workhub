@@ -1,0 +1,52 @@
+{% extends "base.html" %} {% block content %}
+<h1>{{ task.title }}</h1>
+<p>{{ task.description }}</p>
+<p>Manager: {{ task.manager }}</p>
+<p>Client: {{ task.client }}</p>
+<p>Status: {{ task.get_status_display }}</p>
+<p>{{ task.start_date }} → {{ task.due_date }}</p>
+
+{% if request.user.is_superuser or request.user.role == "ADMIN" or request.user.role == "MANAGER" %}
+<a href="{% url 'tasks:update' task.pk %}">Edit</a>
+<a href="{% url 'tasks:delete' task.pk %}">Delete</a>
+{% endif %} 
+
+
+<h3>Comments</h3>
+{% for comment in task.comments.all %}
+    <p>
+        <strong>{{ comment.user.username }}</strong>
+        {{ comment.message }}
+    </p>
+{% empty %}
+    <p>No comments yet.</p>
+{% endfor %}
+<form method="post"
+      action="{% url 'tasks:add_comment' task.pk %}">
+    {% csrf_token %}
+    {{ comment_form.as_p }}
+    <button type="submit">Add Comment</button>
+</form>
+
+
+
+<h3>Attachments</h3>
+{% for attachment in task.attachments.all %}
+    <p>
+        <a href="{{ attachment.file.url }}" target="_blank">
+            {{ attachment.file.name }}
+        </a>
+    </p>
+{% empty %}
+    <p>No attachments yet.</p>
+{% endfor %}
+<form method="post"
+      enctype="multipart/form-data"
+      action="{% url 'tasks:add_attachment' task.pk %}">
+    {% csrf_token %}
+    {{ attachment_form.as_p }}
+    <button type="submit">Upload File</button>
+</form>
+
+
+{% endblock %} 

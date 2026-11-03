@@ -1,0 +1,19 @@
+{% extends "base.html" %} {% block content %}
+<h1>Projects</h1>
+
+{% if request.user.is_superuser or request.user.role == "ADMIN" or request.user.role == "MANAGER" %}
+<a href="{% url 'tasks:create' %}">Add Task</a>
+
+{% endif %} 
+
+
+{% for task in tasks %}
+<p>
+  <a href="{% url 'tasks:detail' task.pk %}">
+    {{ task.title }}
+  </a>
+  - {{ task.get_status_display }}
+</p>
+{% empty %}
+<p>No tasks available.</p>
+{% endfor %} {% endblock %}
