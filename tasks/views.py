@@ -2,15 +2,16 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from accounts.models import User
 from .models import Task
-
 from django.contrib import messages
 from django.shortcuts import redirect
 from .forms import TaskForm
-
 from django.shortcuts import get_object_or_404
-
 from django.core.exceptions import PermissionDenied
 from .forms import TaskCommentForm, TaskAttachmentForm
+from django.http import HttpResponseForbidden
+from accounts.permissions import can_access_task, is_admin, is_manager, can_manage_task
+from .emails import send_task_assignment_email, send_task_status_email
+
 
 
 @login_required
@@ -47,23 +48,36 @@ def task_list(request):
 def task_create(request):
 
     if not (
-        request.user.is_superuser
-        or request.user.role in [
-            User.Role.ADMIN,
-            User.Role.MANAGER,
-        ]
+        is_admin(request.user)
+        or is_manager(request.user)
     ):
-        return redirect("tasks:list")
+        return HttpResponseForbidden(
+            "You cannot create tasks."
+        )
+
+            # return redirect("tasks:list")
+
+    # if not (
+    #     request.user.is_superuser
+    #     or request.user.role in [
+    #         User.Role.ADMIN,
+    #         User.Role.MANAGER,
+    #     ]
+    # ):
 
     if request.method == "POST":
         form = TaskForm(request.POST)
 
         if form.is_valid():
-            form.save()
+            task = form.save()
+
+            send_task_assignment_email(task)
+
             messages.success(
                 request,
                 "Task created successfully."
             )
+
             return redirect("tasks:list")
 
     else:
@@ -76,10 +90,29 @@ def task_create(request):
     )
 
 
+
+    
+
+# @login_required
+# def task_detail(request, pk):
+
+#     task = get_object_or_404(Task, pk=pk)
+
+#     return render(
+#         request,
+#         "tasks/task_detail.html",
+#         {"task": task},
+#     )
+
 @login_required
 def task_detail(request, pk):
 
     task = get_object_or_404(Task, pk=pk)
+
+    if not can_access_task(request.user, task):
+        return HttpResponseForbidden(
+            "You do not have permission to view this task."
+        )
 
     return render(
         request,
@@ -88,10 +121,18 @@ def task_detail(request, pk):
     )
 
 
+
 @login_required
 def task_update(request, pk):
 
     task = get_object_or_404(Task, pk=pk)
+    old_assigned_to_id = task.assigned_to_id
+    old_status = task.status
+
+    if not can_manage_task(request.user, task):
+        return HttpResponseForbidden(
+            "You cannot edit this task."
+        )
 
     if request.method == "POST":
         form = TaskForm(
@@ -100,13 +141,18 @@ def task_update(request, pk):
         )
 
         if form.is_valid():
-            form.save()
-            messages.success(
-                request,
-                "Task updated successfully."
-            )
-            return redirect("tasks:detail", pk=task.pk)
+            task = form.save()
 
+            if task.assigned_to_id != old_assigned_to_id:
+                send_task_assignment_email(task)
+                
+            if task.status != old_status:
+                send_task_status_email(task)
+
+            return redirect(
+                "tasks:detail",
+                pk=task.pk,
+            )
     else:
         form = TaskForm(instance=task)
 
@@ -125,14 +171,13 @@ def task_delete(request, pk):
 
     task = get_object_or_404(Task, pk=pk)
 
-    if not (
-        request.user.is_superuser
-        or request.user.role in [
-            User.Role.ADMIN,
-            User.Role.MANAGER,
-        ]
+    if not can_manage_task(
+        request.user,
+        task,
     ):
-        return redirect("tasks:list")
+        return HttpResponseForbidden(
+            "You cannot delete this task."
+        )
 
     if request.method == "POST":
         task.delete()
@@ -172,16 +217,23 @@ def can_access_task(user, task):
 @login_required
 def task_detail(request, pk):
     task = get_object_or_404(Task, pk=pk)
+    old_status = task.status
 
     if not can_access_task(request.user, task):
         raise PermissionDenied
+
+    if request.method == "POST":
+        form = TaskForm(
+            request.POST,
+            instance=task,
+        )
 
     context = {
         "task": task,
         "comment_form": TaskCommentForm(),
         "attachment_form": TaskAttachmentForm(),
     }
-
+    
     return render(
         request,
         "tasks/task_detail.html",
@@ -195,8 +247,12 @@ def task_detail(request, pk):
 def add_comment(request, pk):
     task = get_object_or_404(Task, pk=pk)
 
+    # if not can_access_task(request.user, task):
+    #     raise PermissionDenied
     if not can_access_task(request.user, task):
-        raise PermissionDenied
+        return HttpResponseForbidden(
+            "You cannot comment on this task."
+        )
 
     if request.method == "POST":
         form = TaskCommentForm(request.POST)
@@ -215,8 +271,13 @@ def add_comment(request, pk):
 def add_attachment(request, pk):
     task = get_object_or_404(Task, pk=pk)
 
+    # if not can_access_task(request.user, task):
+    #     raise PermissionDenied
     if not can_access_task(request.user, task):
-        raise PermissionDenied
+        return HttpResponseForbidden(
+            "You cannot upload to this task."
+        )
+
 
     if request.method == "POST":
         form = TaskAttachmentForm(
@@ -231,3 +292,21 @@ def add_attachment(request, pk):
             attachment.save()
 
     return redirect("tasks:detail", pk=task.pk)
+
+
+def can_manage_tasks(user):
+    return (
+        user.is_authenticated
+        and (
+            user.is_superuser
+            or user.role in [
+                User.Role.ADMIN,
+                User.Role.MANAGER,
+            ]
+        )
+    )
+
+
+
+
+    

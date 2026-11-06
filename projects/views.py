@@ -1,10 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
-
 from accounts.models import User
 from .forms import ProjectForm
 from .models import Project
+from django.http import HttpResponseForbidden
+from accounts.permissions import can_access_project
+
 
 
 def visible_projects(user):
@@ -27,10 +29,18 @@ def project_list(request):
     return render( request, "projects/project_list.html", {"projects": projects}, )
 
 
+# @login_required
+# def project_detail(request, pk):
+#     project = get_object_or_404( visible_projects(request.user), pk=pk, )
+#     return render(request,"projects/project_detail.html",{"project": project},)
 @login_required
 def project_detail(request, pk):
-    project = get_object_or_404( visible_projects(request.user), pk=pk, )
-    return render( request, "projects/project_detail.html", {"project": project}, )
+    project = get_object_or_404(Project, pk=pk)
+    if not can_access_project(request.user, project):
+        return HttpResponseForbidden("You do not have permission to view this project.")
+    return render(request,"projects/project_detail.html",{"project": project},)
+
+
 
 
 @login_required
